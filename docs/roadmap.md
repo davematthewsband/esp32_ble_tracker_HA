@@ -18,7 +18,9 @@ Acceptance: the board receives real advertisements; a known test device can be i
 
 Implemented in software: selected iPhone recognition using a locally configured macOS Remote IRK, AES RPA resolution, configurable 120-second timeout and explicit unknown/present/not-seen states on OLED and serial. Resolution runs before the scan diagnostic table limit. The public Bluetooth D.7 vector and host timing/failure/rollover tests pass; real iPhone matching, timeout behavior and address rotation still need hardware verification.
 
-Acceptance: detection updates last-seen, brief gaps do not cause immediate absence, and the configured timeout produces the expected transition. Check timer rollover and matching logic with meaningful local tests where practical, then verify against the device.
+Phone statistics retain the latest matching rotating MAC, historical RSSI, last-seen age and uptime, total matching reports and observed address transitions. Host tests cover repeated reports, address transitions, coherent snapshots and 64-bit detection uptime. Physical screen/serial verification remains pending.
+
+Acceptance: detection updates last-seen, brief gaps do not cause immediate absence, and the configured timeout produces the expected transition. Verify statistics across real address changes without treating an observed transition count as a count of unique addresses. Check timer rollover and matching logic with meaningful local tests where practical, then verify against the device.
 
 ## 4. Send observations over MQTT
 

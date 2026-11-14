@@ -13,6 +13,19 @@ bool resolves(const uint8_t key[16], const uint8_t address[6],
 bool selfTest(EncryptBlock encrypt);
 
 enum class State { Unknown, Present, NotSeenRecently };
+
+// Fixed-size statistics for verified matches only. Record every callback before
+// handing a snapshot to the loop, so coalescing updates cannot lose counts.
+struct MatchStats {
+    uint8_t address[6]{};
+    uint64_t matches = 0;
+    uint64_t addressChanges = 0;
+    uint64_t lastSeenUptimeMs = 0;
+    int rssi = 0;
+
+    void observe(const uint8_t matchedAddress[6], int matchedRssi, uint64_t uptimeMs);
+};
+
 class Presence {
 public:
     explicit Presence(uint32_t timeoutMs) : timeoutMs_(timeoutMs) {}

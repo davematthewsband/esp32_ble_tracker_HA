@@ -25,11 +25,25 @@ void showStatus(uint32_t now) {
                   static_cast<unsigned long>(ble_scanner::completedScans()),
                   static_cast<unsigned long>(ble_scanner::reports()));
     const auto& phone = iphone_tracker::presence();
+    const auto& stats = iphone_tracker::stats();
+    char mac[18] = "--";
+    if (phone.seen()) {
+        snprintf(mac, sizeof(mac), "%02X:%02X:%02X:%02X:%02X:%02X",
+                 stats.address[0], stats.address[1], stats.address[2],
+                 stats.address[3], stats.address[4], stats.address[5]);
+    }
     Serial.printf("iPhone: %s", iphone_tracker::status());
     if (phone.seen()) {
         Serial.printf(" | last seen %llu s ago | last matching RSSI %d dBm",
                       static_cast<unsigned long long>(phone.ageMs() / 1000),
                       phone.rssi());
+        Serial.printf(" | latest matching MAC (rotating) %s | last seen at uptime %llu s"
+                      " | matching reports %llu | observed address changes %llu",
+                      mac, static_cast<unsigned long long>(stats.lastSeenUptimeMs / 1000),
+                      static_cast<unsigned long long>(stats.matches),
+                      static_cast<unsigned long long>(stats.addressChanges));
+    } else {
+        Serial.print(" | latest matching MAC -- | matching reports 0 | observed address changes 0");
     }
     Serial.println();
     if (!displayReady) {
@@ -47,20 +61,19 @@ void showStatus(uint32_t now) {
     display.print("Phone: ");
     display.println(phone.state() == iphone_presence::State::NotSeenRecently
                         ? "not seen" : iphone_tracker::status());
-    display.print("Last: ");
+    display.println("Last MAC (rotating):");
+    display.println(mac);
+    display.print("Seen: ");
     if (phone.seen()) {
         display.print(static_cast<unsigned long>(phone.ageMs() / 1000));
         display.println(" s ago");
-        display.print("RSSI: ");
+        display.print("Last RSSI:");
         display.print(phone.rssi());
-        display.println(" dBm (last)");
+        display.println(" dBm");
     } else {
         display.println("never");
-        display.println("RSSI: --");
+        display.println("Last RSSI: --");
     }
-    display.print("Uptime: ");
-    display.print(now / 1000);
-    display.println(" s");
     display.display();
 }
 }  // namespace

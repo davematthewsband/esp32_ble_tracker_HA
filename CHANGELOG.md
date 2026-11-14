@@ -6,6 +6,7 @@ Notable implemented changes are recorded here. Future work belongs in [the roadm
 
 ### Added
 
+- Phone statistics: latest matching rotating MAC, last matching RSSI and last-seen age on the OLED; serial output also reports last detection uptime, total matching advertisement reports and observed address transitions. Counters include every matching callback, even between display updates, and reset on reboot.
 - Local iPhone presence from macOS Remote IRK configuration: AES-based RPA resolution before diagnostic capacity limits, 120-second configurable last-seen timeout, unknown/present/not-seen status, last-seen age and historical matching RSSI on serial/OLED. Scanner failure produces unknown status.
 - Placeholder configuration, strict key-format conversion, firmware AES startup self-test, and sanitized host tests using the Bluetooth D.7 vector plus timing/rollover and failure cases. Personal keys remain only in ignored local configuration and build output.
 

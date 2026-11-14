@@ -41,7 +41,7 @@ class Callbacks : public BLEAdvertisedDeviceCallbacks {
         auto nativeAddress = device.getAddress();
         iphone_tracker::observe(*nativeAddress.getNative(),
                                 static_cast<uint8_t>(device.getAddressType()),
-                                device.getRSSI(), millis());
+                                device.getRSSI());
         const auto address = device.getAddress().toString();
         const auto type = static_cast<uint8_t>(device.getAddressType());
         size_t index = 0;

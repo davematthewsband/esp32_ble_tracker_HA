@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include <mbedtls/aes.h>
+#include <esp_timer.h>
 #include <atomic>
 
 #if __has_include("config.local.h")
@@ -22,8 +23,8 @@ bool ready = false;  // Set before the scanner starts, then immutable.
 std::atomic<bool> cryptoFailed{false};
 portMUX_TYPE matchMux = portMUX_INITIALIZER_UNLOCKED;
 bool pending = false;
-uint32_t matchMs = 0;
-int matchRssi = 0;
+iphone_presence::MatchStats callbackStats;
+iphone_presence::MatchStats latestStats;
 iphone_presence::Presence tracked(IPHONE_TIMEOUT_MS);
 
 bool encrypt(const uint8_t key[16], const uint8_t input[16], uint8_t output[16]) {
@@ -52,27 +53,27 @@ void begin() {
                   static_cast<unsigned long>(IPHONE_TIMEOUT_MS));
 }
 
-void observe(const uint8_t address[6], uint8_t type, int rssi, uint32_t now) {
+void observe(const uint8_t address[6], uint8_t type, int rssi) {
     if (!ready || cryptoFailed.load() ||
         !iphone_presence::resolves(irk, address, type, encrypt)) return;
+    const uint64_t uptimeMs = static_cast<uint64_t>(esp_timer_get_time()) / 1000;
     portENTER_CRITICAL(&matchMux);
-    matchMs = now;
-    matchRssi = rssi;
+    callbackStats.observe(address, rssi, uptimeMs);
     pending = true;
     portEXIT_CRITICAL(&matchMux);
 }
 
 void poll(bool scannerHealthy) {
     bool gotMatch;
-    uint32_t timestamp;
-    int rssi;
     portENTER_CRITICAL(&matchMux);
     gotMatch = pending;
-    timestamp = matchMs;
-    rssi = matchRssi;
+    if (gotMatch) latestStats = callbackStats;
     pending = false;
     portEXIT_CRITICAL(&matchMux);
-    if (gotMatch) tracked.observe(timestamp, rssi);
+    if (gotMatch) {
+        tracked.observe(static_cast<uint32_t>(latestStats.lastSeenUptimeMs),
+                        latestStats.rssi);
+    }
     // Sample time after the mailbox snapshot so a newly received timestamp
     // cannot appear to be in the future and look like a millis() rollover.
     const uint32_t now = millis();
@@ -80,6 +81,7 @@ void poll(bool scannerHealthy) {
 }
 
 const iphone_presence::Presence& presence() { return tracked; }
+const iphone_presence::MatchStats& stats() { return latestStats; }
 const char* status() {
     switch (tracked.state()) {
         case iphone_presence::State::Present: return "present";

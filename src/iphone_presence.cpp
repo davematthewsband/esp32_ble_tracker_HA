@@ -61,6 +61,17 @@ bool selfTest(EncryptBlock encrypt) {
     return resolves(key, address, 1, encrypt);
 }
 
+void MatchStats::observe(const uint8_t matchedAddress[6], int matchedRssi,
+                         uint64_t uptimeMs) {
+    if (matches && std::memcmp(address, matchedAddress, sizeof(address)) != 0) {
+        ++addressChanges;
+    }
+    std::memcpy(address, matchedAddress, sizeof(address));
+    ++matches;
+    lastSeenUptimeMs = uptimeMs;
+    rssi = matchedRssi;
+}
+
 void Presence::observe(uint32_t now, int rssi) {
     seen_ = true;
     expired_ = false;

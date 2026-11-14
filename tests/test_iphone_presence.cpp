@@ -97,6 +97,30 @@ int main() {
     assert(atBoot.state() == State::Unknown);
     atBoot.tick(102, true);
     assert(atBoot.state() == State::Present && atBoot.ageMs() == 3);
+    MatchStats stats;
+    assert(stats.matches == 0 && stats.addressChanges == 0);
+    assert(stats.lastSeenUptimeMs == 0);
+    const uint8_t firstAddress[6] = {0x70,0x81,0x94,0x0d,0xfb,0xaa};
+    const uint8_t secondAddress[6] = {0x41,0x22,0x33,0x44,0x55,0x66};
+    stats.observe(firstAddress, -66, 0);
+    assert(stats.matches == 1 && stats.addressChanges == 0);
+    assert(std::memcmp(stats.address, firstAddress, 6) == 0);
+    assert(stats.rssi == -66 && stats.lastSeenUptimeMs == 0);
+    // Multiple callbacks can precede a loop snapshot. Every report must count.
+    stats.observe(firstAddress, -60, 10);
+    stats.observe(secondAddress, -70, 20);
+    stats.observe(firstAddress, -62, 30);
+    assert(stats.matches == 4 && stats.addressChanges == 2);
+    auto snapshot = stats;
+    const uint64_t afterRollover = static_cast<uint64_t>(UINT32_MAX) + 1000;
+    stats.observe(secondAddress, -80, afterRollover);
+    assert(stats.matches == 5 && stats.addressChanges == 3);
+    assert(stats.lastSeenUptimeMs == afterRollover && stats.rssi == -80);
+    // A displayed snapshot stays coherent while new callbacks update the source.
+    assert(snapshot.matches == 4 && snapshot.addressChanges == 2);
+    assert(snapshot.lastSeenUptimeMs == 30 && snapshot.rssi == -62);
+    assert(std::memcmp(snapshot.address, firstAddress, 6) == 0);
+
     std::cout << "PASS: Bluetooth ah vector, macOS key order, rejection cases, "
-                 "presence timing, scanner failure and timer rollover\n";
+                 "presence timing, scanner failure, rollover and match statistics\n";
 }
