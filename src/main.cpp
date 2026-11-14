@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <Adafruit_SSD1306.h>
+#include "ble_scanner.h"
 
 namespace {
 // Heltec's V3 OLED uses different I2C pins from the generic SDA/SCL.
@@ -16,17 +17,26 @@ bool displayReady = false;
 uint32_t lastUpdateMs = 0;
 
 void showStatus(uint32_t now) {
-    Serial.printf("Heltec V3 bring-up | uptime %lu s | OLED %s\n",
+    Serial.printf("Heltec V3 | uptime %lu s | OLED %s | BLE %s | scans %lu | reports %lu\n",
                   static_cast<unsigned long>(now / 1000),
-                  displayReady ? "initialized" : "unavailable");
+                  displayReady ? "initialized" : "unavailable",
+                  ble_scanner::status(),
+                  static_cast<unsigned long>(ble_scanner::completedScans()),
+                  static_cast<unsigned long>(ble_scanner::reports()));
     if (!displayReady) {
         return;
     }
     display.clearDisplay();
     display.setCursor(0, 0);
     display.println("Heltec WiFi LoRa V3");
-    display.println("Serial / OLED test");
-    display.println();
+    display.print("BLE: ");
+    display.println(ble_scanner::status());
+    display.print("Scans: ");
+    display.println(ble_scanner::completedScans());
+    display.print("Reports: ");
+    display.println(ble_scanner::reports());
+    display.print("Last kept: ");
+    display.println(ble_scanner::lastDeviceCount());
     display.print("Uptime: ");
     display.print(now / 1000);
     display.println(" s");
@@ -61,10 +71,13 @@ void setup() {
         display.setTextColor(SSD1306_WHITE);
         display.setTextWrap(false);
     }
+    ble_scanner::begin();
+    ble_scanner::poll();
     showStatus(millis());
 }
 
 void loop() {
+    ble_scanner::poll();
     const uint32_t now = millis();
     // Unsigned subtraction keeps the interval correct across millis() rollover.
     if (static_cast<uint32_t>(now - lastUpdateMs) >= kUpdateMs) {

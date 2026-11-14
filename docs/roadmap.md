@@ -4,13 +4,13 @@ Stages below distinguish implemented software from future work and physical acce
 
 ## 1. Board bring-up
 
-Implemented: the user confirmed `wifi_lora_32_v3`; a PlatformIO/Arduino project targets that board, with serial output and OLED uptime using official V3 display pins, reset and power control. Local compilation passed on 14 November 2026. A finer PCB revision is not established. Flashing and physical acceptance remain pending.
+Implemented: the user confirmed `wifi_lora_32_v3`; a PlatformIO/Arduino project targets that board, with serial output and OLED uptime using official V3 display pins, reset and power control. Local compilation passed on 14 November 2026. A finer PCB revision is not established. The user subsequently reported the serial/OLED firmware working after flashing. This is user-reported bring-up acceptance, separate from BLE validation.
 
 Acceptance: the project compiles for the selected board; after an agreed flash, the physical board shows the expected serial and OLED output. Record actual dependency versions and reproducible build/upload instructions.
 
 ## 2. Observe BLE advertisements
 
-Add bounded BLE scanning and local diagnostics for available names, addresses, address types and RSSI. Explain which fields are advertised and which are absent. Keep scan callbacks short and avoid an ever-growing device list.
+Implemented in software: passive asynchronous five-second scans, a fixed 32-entry table, local name/address/type/RSSI diagnostics and OLED scan counters. The bundled Arduino BLE library is used without its internal accumulating results map. Local compilation passed on 14 November 2026. Real BLE reception and physical acceptance remain pending.
 
 Acceptance: the board receives real advertisements; a known test device can be identified from evidence; serial and display remain responsive. Keep raw observations out of version control.
 
@@ -36,7 +36,7 @@ Acceptance: entities appear through MQTT discovery, reflect real observations an
 
 - First target: beacon, phone or sensor, and the tracking behavior desired.
 - Exact board revision and USB connection/upload details.
-- BLE and OLED libraries after checking current compatibility.
+- OLED: pinned Adafruit libraries; BLE: bundled Arduino core library. Reassess dependencies when requirements change.
 - Existing MQTT broker availability and connection requirements.
 - Presence timeout, publication cadence and OLED contents based on observations.
 
