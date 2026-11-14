@@ -1,4 +1,5 @@
 #include "ble_scanner.h"
+#include "iphone_tracker.h"
 
 #include <Arduino.h>
 #include <BLEDevice.h>
@@ -37,6 +38,10 @@ uint32_t retryMs = 0;
 class Callbacks : public BLEAdvertisedDeviceCallbacks {
     void onResult(BLEAdvertisedDevice device) override {
         reportCount.fetch_add(1, std::memory_order_relaxed);
+        auto nativeAddress = device.getAddress();
+        iphone_tracker::observe(*nativeAddress.getNative(),
+                                static_cast<uint8_t>(device.getAddressType()),
+                                device.getRSSI(), millis());
         const auto address = device.getAddress().toString();
         const auto type = static_cast<uint8_t>(device.getAddressType());
         size_t index = 0;
@@ -153,6 +158,7 @@ void poll() {
 uint32_t completedScans() { return scans; }
 uint32_t reports() { return reportCount.load(std::memory_order_relaxed); }
 uint8_t lastDeviceCount() { return lastDevices; }
+bool healthy() { return !failed && !stalled; }
 const char* status() {
     if (stalled) return "stalled";
     if (failed) return "retrying";

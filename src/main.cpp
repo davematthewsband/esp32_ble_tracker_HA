@@ -2,6 +2,7 @@
 #include <Wire.h>
 #include <Adafruit_SSD1306.h>
 #include "ble_scanner.h"
+#include "iphone_tracker.h"
 
 namespace {
 // Heltec's V3 OLED uses different I2C pins from the generic SDA/SCL.
@@ -23,6 +24,14 @@ void showStatus(uint32_t now) {
                   ble_scanner::status(),
                   static_cast<unsigned long>(ble_scanner::completedScans()),
                   static_cast<unsigned long>(ble_scanner::reports()));
+    const auto& phone = iphone_tracker::presence();
+    Serial.printf("iPhone: %s", iphone_tracker::status());
+    if (phone.seen()) {
+        Serial.printf(" | last seen %llu s ago | last matching RSSI %d dBm",
+                      static_cast<unsigned long long>(phone.ageMs() / 1000),
+                      phone.rssi());
+    }
+    Serial.println();
     if (!displayReady) {
         return;
     }
@@ -31,12 +40,24 @@ void showStatus(uint32_t now) {
     display.println("Heltec WiFi LoRa V3");
     display.print("BLE: ");
     display.println(ble_scanner::status());
-    display.print("Scans: ");
-    display.println(ble_scanner::completedScans());
-    display.print("Reports: ");
+    display.print("S:");
+    display.print(ble_scanner::completedScans());
+    display.print(" R:");
     display.println(ble_scanner::reports());
-    display.print("Last kept: ");
-    display.println(ble_scanner::lastDeviceCount());
+    display.print("Phone: ");
+    display.println(phone.state() == iphone_presence::State::NotSeenRecently
+                        ? "not seen" : iphone_tracker::status());
+    display.print("Last: ");
+    if (phone.seen()) {
+        display.print(static_cast<unsigned long>(phone.ageMs() / 1000));
+        display.println(" s ago");
+        display.print("RSSI: ");
+        display.print(phone.rssi());
+        display.println(" dBm (last)");
+    } else {
+        display.println("never");
+        display.println("RSSI: --");
+    }
     display.print("Uptime: ");
     display.print(now / 1000);
     display.println(" s");
@@ -71,14 +92,17 @@ void setup() {
         display.setTextColor(SSD1306_WHITE);
         display.setTextWrap(false);
     }
+    iphone_tracker::begin();
     ble_scanner::begin();
     ble_scanner::poll();
+    iphone_tracker::poll(ble_scanner::healthy());
     showStatus(millis());
 }
 
 void loop() {
     ble_scanner::poll();
     const uint32_t now = millis();
+    iphone_tracker::poll(ble_scanner::healthy());
     // Unsigned subtraction keeps the interval correct across millis() rollover.
     if (static_cast<uint32_t>(now - lastUpdateMs) >= kUpdateMs) {
         lastUpdateMs = now;

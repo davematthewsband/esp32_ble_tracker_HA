@@ -16,7 +16,7 @@ Acceptance: the board receives real advertisements; a known test device can be i
 
 ## 3. Track one selected device
 
-Choose a target and matching rule based on its actual advertisements. Implement last-seen timing and a configurable absence timeout, with explicit startup/unknown behavior. Explain limitations from address rotation, advertising intervals and signal loss.
+Implemented in software: selected iPhone recognition using a locally configured macOS Remote IRK, AES RPA resolution, configurable 120-second timeout and explicit unknown/present/not-seen states on OLED and serial. Resolution runs before the scan diagnostic table limit. The public Bluetooth D.7 vector and host timing/failure/rollover tests pass; real iPhone matching, timeout behavior and address rotation still need hardware verification.
 
 Acceptance: detection updates last-seen, brief gaps do not cause immediate absence, and the configured timeout produces the expected transition. Check timer rollover and matching logic with meaningful local tests where practical, then verify against the device.
 
@@ -34,7 +34,7 @@ Acceptance: entities appear through MQTT discovery, reflect real observations an
 
 ## Decisions to make when relevant
 
-- First target: beacon, phone or sensor, and the tracking behavior desired.
+- First target: iPhone using Remote IRK; validate real advertisements and tune the timeout.
 - Exact board revision and USB connection/upload details.
 - OLED: pinned Adafruit libraries; BLE: bundled Arduino core library. Reassess dependencies when requirements change.
 - Existing MQTT broker availability and connection requirements.

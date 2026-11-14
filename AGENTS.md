@@ -12,7 +12,7 @@
 
 - This is a learning project for custom ESP32 firmware that observes Bluetooth Low Energy advertisements and sends selected observations to Home Assistant.
 - Target hardware: Heltec WiFi LoRa 32 V3 with ESP32-S3 and onboard OLED. Verify the exact board revision and official pin definitions before implementing hardware support.
-- Development stack: PlatformIO with Arduino and C++. The firmware implements serial/OLED status and passive BLE scanning with bounded local diagnostics.
+- Development stack: PlatformIO with Arduino and C++. The firmware implements serial/OLED status and passive BLE scanning with bounded local diagnostics and local IRK-based iPhone last-seen presence.
 - Build in small, explainable stages: serial/OLED bring-up, BLE scanning, selected-device presence, then Wi-Fi/MQTT and Home Assistant discovery.
 - Explain important choices and tradeoffs. Prefer understandable modules over a large framework or copying an existing tracker wholesale.
 - LoRa, Bluetooth proxying, active GATT connections and room-level positioning are outside the initial scope.
@@ -21,7 +21,7 @@
 ## Development and privacy
 
 - Use local files, terminal tools and APIs. Do not use Computer Use or ask the user to enable it.
-- Keep Wi-Fi/MQTT credentials, real device identifiers, captures and installation-specific configuration out of version control. Provide placeholder examples when configuration is introduced.
+- Keep Wi-Fi/MQTT credentials, IRKs, real device identifiers, captures and installation-specific configuration out of version control. The local Remote IRK is in ignored `include/config.local.h`; never print it or include firmware binaries in shared artifacts. Provide placeholder examples when configuration is introduced.
 - Scan results can contain nearby people's device identifiers. Keep diagnostic output deliberate, bounded and local by default; publish only explicitly selected devices to MQTT.
 - Do not equate an observed BLE address with a stable personal identity. Account for rotating addresses and devices that do not advertise consistently.
 - Treat RSSI as signal strength, not a reliable distance measurement. A missed advertisement does not immediately establish absence.
