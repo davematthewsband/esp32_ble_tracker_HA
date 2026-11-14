@@ -1,5 +1,6 @@
 # PlatformIO and generated build output
 .pio/
+.pio-core/
 build/
 
 # Local credentials and device-specific configuration

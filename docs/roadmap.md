@@ -1,10 +1,10 @@
 # Learning roadmap
 
-These are proposed stages, not implemented features. Agree each implementation scope in conversation before editing. Keep the first experiments small enough to explain and troubleshoot independently.
+Stages below distinguish implemented software from future work and physical acceptance. Agree each implementation scope in conversation before editing. Keep the first experiments small enough to explain and troubleshoot independently.
 
 ## 1. Board bring-up
 
-Confirm the exact Heltec V3 revision, select the matching PlatformIO board/framework combination and verify official display pins, reset and power control. Introduce a minimal firmware project with serial output and a simple OLED status message.
+Implemented: the user confirmed `wifi_lora_32_v3`; a PlatformIO/Arduino project targets that board, with serial output and OLED uptime using official V3 display pins, reset and power control. Local compilation passed on 14 November 2026. A finer PCB revision is not established. Flashing and physical acceptance remain pending.
 
 Acceptance: the project compiles for the selected board; after an agreed flash, the physical board shows the expected serial and OLED output. Record actual dependency versions and reproducible build/upload instructions.
 

@@ -12,7 +12,7 @@
 
 - This is a learning project for custom ESP32 firmware that observes Bluetooth Low Energy advertisements and sends selected observations to Home Assistant.
 - Target hardware: Heltec WiFi LoRa 32 V3 with ESP32-S3 and onboard OLED. Verify the exact board revision and official pin definitions before implementing hardware support.
-- Proposed development stack: PlatformIO with Arduino and C++. No firmware or build configuration exists yet.
+- Development stack: PlatformIO with Arduino and C++. The initial firmware implements serial/OLED bring-up only.
 - Build in small, explainable stages: serial/OLED bring-up, BLE scanning, selected-device presence, then Wi-Fi/MQTT and Home Assistant discovery.
 - Explain important choices and tradeoffs. Prefer understandable modules over a large framework or copying an existing tracker wholesale.
 - LoRa, Bluetooth proxying, active GATT connections and room-level positioning are outside the initial scope.
