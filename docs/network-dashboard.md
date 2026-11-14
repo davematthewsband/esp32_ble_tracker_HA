@@ -32,7 +32,7 @@ The project pins Espressif32 **8.0.0**, Arduino **3.3.12**, and the correspondin
 PLATFORMIO_CORE_DIR="$PWD/.pio-core" /Users/finnmainstone/.platformio/penv/bin/platformio run -e heltec_v3
 ```
 
-After a user-performed or separately agreed upload, open the serial monitor at 115200 baud. It will show network state and, once ready, the HTTPS hostname and IP. Press PRG to switch from the Phone OLED page to Wi-Fi connection/IP/RSSI/HTTPS diagnostics and the System page. The startup title/progress does not wait for association. Network diagnostics are also on serial and the dashboard. Use the [README upload instructions](../README.md#build-and-first-hardware-check).
+After a user-performed or separately agreed upload, open the serial monitor at 115200 baud. It will show network state and, once ready, the HTTPS hostname and IP. Press PRG to switch from the Phone OLED page to Wi-Fi connection/IP/RSSI/HTTPS diagnostics and the System page. The Wi-Fi page also shows the last driver disconnect reason/code; serial logs the same reason when a new event arrives. This historical reason is retained after recovery, while IP/connection state reflect the current connection. The startup title/progress does not wait for association. Network diagnostics are also on serial and the dashboard. Use the [README upload instructions](../README.md#build-and-first-hardware-check).
 
 Browse to **https://ble-tracker.local/** and use the username/password from the private network header. The page/assets, `/api/status` and `/api/settings` all require authentication. Settings writes additionally require a per-boot CSRF token obtained from the authenticated settings response; no token is included in exported configuration. A normal browser login challenge is expected. Basic authentication is carried only inside TLS; no credentials are stored in JavaScript or browser local storage. Browsers can retain Basic credentials for their session, so close the browser session when finished on a shared computer.
 
@@ -133,6 +133,6 @@ After uploading, verify on the real board:
 5. Confirm TLS 1.0/1.1 and plaintext HTTP cannot connect. An authenticated settings POST without the correct CSRF token must receive 403. Unknown POST/PUT routes must not change settings.
 6. Save names/rooms and a timeout, reset the board, then perform an ordinary firmware upload and confirm persistence. Download a backup, edit/import it and confirm the replacement. Invalid/oversized/duplicate/secret-bearing JSON must leave the last valid settings active.
 
-Software checks passed on 14 November 2026, including the enabled-network fixture. The current private-config build reports 81,940 bytes static RAM (25.0%) and 1,290,996 bytes application flash (38.6%). These values do not measure runtime TLS/NVS heap.
+Software checks passed on 14 November 2026, including the enabled-network fixture. The current private-config build reports 81,956 bytes static RAM (25.0%) and 1,292,704 bytes application flash (38.7%). These values do not measure runtime TLS/NVS heap.
 
 These physical network/TLS/NVS checks remain pending. The assistant has not flashed firmware, joined the Wi-Fi network or written labels/settings to the board.

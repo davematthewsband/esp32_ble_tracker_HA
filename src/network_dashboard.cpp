@@ -4,6 +4,7 @@
 #include "dashboard_protocol.h"
 #include "dashboard_assets.h"
 #include "settings_store.h"
+#include "wifi_diagnostics.h"
 
 #include <Arduino.h>
 #include <WiFi.h>
@@ -14,6 +15,7 @@
 #include <mbedtls/base64.h>
 #include <freertos/semphr.h>
 #include <cstring>
+#include <atomic>
 
 #if defined(CONFIG_MBEDTLS_SSL_PROTO_TLS1) || defined(CONFIG_MBEDTLS_SSL_PROTO_TLS1_1)
 #error "Dashboard requires an SDK without legacy TLS 1.0/1.1 enabled"
@@ -60,6 +62,24 @@ bool mdnsStarted = false;
 uint32_t lastConnectMs = 0;
 uint32_t lastSnapshotMs = 0;
 uint32_t lastServerAttemptMs = 0;
+std::atomic<uint16_t> lastDisconnectReason{0};
+std::atomic<uint32_t> disconnectSequence{0};
+std::atomic<uint32_t> localRetryAt{0};
+std::atomic<bool> localRetryRequested{false};
+uint32_t reportedDisconnectSequence = 0;
+
+static_assert(WIFI_REASON_NO_AP_FOUND == 201 && WIFI_REASON_AUTH_FAIL == 202 &&
+              WIFI_REASON_ASSOC_FAIL == 203 && WIFI_REASON_HANDSHAKE_TIMEOUT == 204 &&
+              WIFI_REASON_ASSOC_LEAVE == 8, "Recheck Wi-Fi diagnostic reason mapping for this SDK");
+
+void onWifiDisconnect(arduino_event_id_t, arduino_event_info_t info) {
+    const uint16_t reason = info.wifi_sta_disconnected.reason;
+    if (wifi_diagnostics::retryLeave(reason, millis(), localRetryAt.load(), localRetryRequested.load())) return;
+    // Event task: only copy the code. Never print event structs containing SSID
+    // or other identifying fields, or touch OLED state from this task.
+    lastDisconnectReason.store(reason, std::memory_order_relaxed);
+    disconnectSequence.fetch_add(1, std::memory_order_release);
+}
 
 void securityHeaders(httpd_req_t* request) {
     httpd_resp_set_hdr(request, "Cache-Control", "no-store");
@@ -331,6 +351,7 @@ void begin() {
     esp_fill_random(random, sizeof(random));
     for (size_t i = 0; i < sizeof(random); ++i)
         snprintf(csrfToken + i * 2, 3, "%02x", random[i]);
+    WiFi.onEvent(onWifiDisconnect, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
     WiFi.persistent(false);
     WiFi.mode(WIFI_STA);
     WiFi.setHostname(TRACKER_HOSTNAME);
@@ -345,6 +366,14 @@ void begin() {
 void poll() {
     if (!enabled) return;
     const uint32_t now = millis();
+    if (localRetryRequested.load() && static_cast<uint32_t>(now - localRetryAt.load()) >= 1000)
+        localRetryRequested.store(false);
+    const uint32_t sequence = disconnectSequence.load(std::memory_order_acquire);
+    if (sequence != reportedDisconnectSequence) {
+        reportedDisconnectSequence = sequence;
+        const auto reason = lastDisconnectReason.load(std::memory_order_relaxed);
+        Serial.printf("Wi-Fi disconnect reason %u: %s\n", reason, wifi_diagnostics::message(reason));
+    }
     const bool wasConnected = connected;
     connected = WiFi.status() == WL_CONNECTED;
     if (connected && !wasConnected) {
@@ -362,6 +391,8 @@ void poll() {
     }
     if (!connected && static_cast<uint32_t>(now - lastConnectMs) >= 30000) {
         lastConnectMs = now;
+        localRetryAt.store(now);
+        localRetryRequested.store(true);
         WiFi.disconnect(false, false);
         WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
         Serial.println("Wi-Fi connection retry.");
@@ -387,6 +418,7 @@ ConnectionInfo connectionInfo() {
     info.enabled = enabled;
     info.connected = connected;
     info.httpsReady = connected && server;
+    info.lastDisconnectReason = lastDisconnectReason.load(std::memory_order_relaxed);
     if (connected) {
         snprintf(info.ip, sizeof(info.ip), "%s", WiFi.localIP().toString().c_str());
         info.rssi = WiFi.RSSI();

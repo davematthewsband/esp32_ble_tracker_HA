@@ -6,6 +6,8 @@ Notable implemented changes are recorded here. Future work belongs in [the roadm
 
 ### Added
 
+- Wi-Fi disconnect reason codes and short explanations on serial and the PRG Wi-Fi OLED page. The last reason survives connection retries/recovery; deliberate local retry disconnects are filtered briefly so they do not hide the failure under investigation. Event callbacks copy only numeric codes, never credentials.
+
 - OLED startup title/initialization progress and debounced PRG-button cycling through Phone, Wi-Fi and System pages. Wi-Fi shows connection state, IP, RSSI and HTTPS readiness; System shows uptime/scans/memory. Startup does not wait for association, held presses do not repeat, and page changes do not write settings or expose passwords/IRKs.
 - Editable scanner/device names and manual room labels, persisted in NVS with the phone timeout. Added authenticated/CSRF-protected settings saves and versioned JSON download/import with strict bounds/schema validation; exports exclude credentials, keys and IRKs. Invalid imports retain active settings.
 

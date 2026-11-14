@@ -3,6 +3,7 @@
 #include "ble_scanner.h"
 #include "iphone_tracker.h"
 #include "network_dashboard.h"
+#include "wifi_diagnostics.h"
 
 #include <Arduino.h>
 #include <Adafruit_SSD1306.h>
@@ -55,13 +56,13 @@ void drawPage() {
         display.println("WI-FI 2/3  PRG >");
         display.print("State: ");
         display.println(!wifi.enabled ? "disabled" : wifi.connected ? "connected" : "connecting");
-        display.println("IP address:");
-        display.println(wifi.connected ? wifi.ip : "--");
+        display.print("IP: "); display.println(wifi.connected ? wifi.ip : "--");
         if (wifi.connected) display.printf("WiFi RSSI: %d dBm\n", wifi.rssi);
         else display.println("WiFi RSSI: --");
         display.print("HTTPS: ");
         display.println(!wifi.enabled ? "disabled" : wifi.httpsReady ? "ready" : "waiting");
-        display.println("HTTPS port: 443");
+        display.printf("Last reason: %u\n", wifi.lastDisconnectReason);
+        display.println(wifi_diagnostics::message(wifi.lastDisconnectReason));
         display.println("PRG: System / Phone");
     } else {
         display.println("SYSTEM 3/3  PRG >");

@@ -1,4 +1,5 @@
 #pragma once
+#include <stdint.h>
 
 namespace network_dashboard {
 struct ConnectionInfo {
@@ -7,6 +8,7 @@ struct ConnectionInfo {
     bool httpsReady = false;
     char ip[16]{};
     int rssi = 0;
+    uint16_t lastDisconnectReason = 0;
 };
 // Main-loop access only. No passwords, IRK or private TLS material.
 ConnectionInfo connectionInfo();
