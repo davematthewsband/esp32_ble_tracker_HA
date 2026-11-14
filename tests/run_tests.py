@@ -53,3 +53,8 @@ with tempfile.TemporaryDirectory(prefix="esp32-presence-tests-") as directory:
                     str(root / "src/dashboard_protocol.cpp"), str(root / "tests/test_device_settings.cpp"),
                     cjson_object, "-o", settings_binary], check=True)
     subprocess.run([settings_binary], check=True)
+    button_binary = str(Path(directory) / "test_button")
+    subprocess.run(["clang++", "-std=c++11", "-Wall", "-Wextra", "-Werror",
+                    "-fsanitize=address,undefined", "-I", str(root / "src"),
+                    str(root / "tests/test_page_button.cpp"), "-o", button_binary], check=True)
+    subprocess.run([button_binary], check=True)

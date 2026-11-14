@@ -40,11 +40,27 @@ pio run -e heltec_v3 -t upload --upload-port YOUR_PORT
 pio device monitor --port YOUR_PORT --baud 115200
 ```
 
-The firmware uses the board's UART serial connection at 115200 baud. Expect a repeating `Heltec V3` status line and an OLED showing BLE status, completed scans (`S`), report count (`R`), iPhone status, the latest matching rotating MAC, last-seen age and last matching RSSI. Scanner uptime and the full phone statistics are available on serial. Exit the monitor with Ctrl+C. If automatic upload fails, hold PRG/BOOT, tap RESET, release PRG/BOOT and retry. Close any serial monitor before uploading.
+The firmware uses the board's UART serial connection at 115200 baud. Expect a repeating `Heltec V3` status line. The OLED shows a startup title and initialization progress, then opens the Phone page. Press PRG to cycle Phone → Wi-Fi → System; details are below. The full phone statistics are also available on serial. Exit the monitor with Ctrl+C. If automatic upload fails, hold PRG/BOOT, tap RESET, release PRG/BOOT and retry. Close any serial monitor before uploading.
 
 The OLED uses I2C SDA **17**, SCL **18**, reset **21**, address **0x3C**, and active-low Vext power **36**. These come from [Heltec's V3 pin definitions](https://github.com/Heltec-Aaron-Lee/WiFi_Kit_series/blob/master/variants/heltec_wifi_lora_32_V3/pins_arduino.h) and [display initialization](https://github.com/HelTecAutomation/Heltec_ESP32/blob/master/src/heltec.cpp). Generic `SDA`/`SCL` are different pins on this board. Startup enables display power, resets the controller and checks its I2C response before allocating the display buffer. A missing display leaves serial heartbeat output running with `OLED unavailable`; initialization does not prove visible screen output. After resolving a display connection issue, reset the board to retry initialization.
 
-`setup()` initializes the hardware once. `loop()` polls the asynchronous scanner and refreshes the status once per second without waiting for a serial monitor. The display driver handles pixels and I2C commands; the application owns power/reset sequencing and the status content.
+`setup()` initializes the screen/button once. `loop()` advances startup stages, polls initialized services and refreshes the selected page once per second without waiting for a serial monitor or Wi-Fi association. The display driver handles pixels and I2C commands; the application owns power/reset sequencing and the status content.
+
+## OLED pages and PRG button
+
+Startup shows the project title for about one second, then progress through the IRK tracker, saved settings, Bluetooth and Wi-Fi/HTTPS initialization. Each stage is briefly visible. Already initialized services continue running in the loop; startup does not wait for a Wi-Fi connection. A short completion screen is followed by the Phone page, even if networking is disabled or still connecting.
+
+Press **PRG** during normal operation to cycle:
+
+| Page | Information |
+| --- | --- |
+| Phone · 1/3 | Presence state, latest matching rotating MAC, last-seen age, last matching RSSI and BLE status. |
+| Wi-Fi · 2/3 | Disabled/connecting/connected state, current IPv4 address, Wi-Fi RSSI, and HTTPS disabled/waiting/ready state (port 443). IP/RSSI show `--` while disconnected. |
+| System · 3/3 | Uptime, completed scans, current report count, free/minimum heap and BLE status. |
+
+The [official V3 schematic](https://resource.heltec.cn/download/WiFi_LoRa_32_V3/HTIT-WB32LA%28F%29_V3.1_Schematic_Diagram.pdf) connects USER/PRG to **GPIO0**, active-low. Firmware reads it with a pull-up and 40 ms debounce: one page change per stable press, no repeat while held. Presses during startup do not skip initialization or change settings. The selected page is not persisted; every reboot opens Phone. Holding PRG during reset still invokes the chip’s normal download-mode behavior. There is no long-press action and no passwords/IRK on any page.
+
+After uploading, check the startup sequence, then three separate presses to verify page order and wraparound. Hold PRG to confirm it advances only once. On the Wi-Fi page, check IP/RSSI against the dashboard/serial output; disconnect the access point and verify they clear, while BLE continues. If the OLED is unavailable, serial output and services still initialize. Host debounce tests and compilation passed; physical button/screen validation remains pending.
 
 ## BLE scanning experiment
 
@@ -77,7 +93,7 @@ Phone status appears on both serial and the OLED:
 | `present` | A matching RPA was received less than the configured timeout ago. |
 | `not seen recently` | A previous match has aged past the timeout while scanning is healthy. The OLED abbreviates this as `not seen`. |
 
-The OLED uses eight text rows: board, BLE status, scan/report counts, phone state, `Last MAC (rotating):`, the address, last-seen age, and `Last RSSI`. Before any match the MAC/RSSI show `--` and last-seen shows `never`. The MAC is the latest address actually matched by the IRK; it is not a prediction of the next address or a permanent hardware address.
+The Phone page uses eight text rows: page header, phone state, `Last MAC (rotating):`, the address, last-seen age, `Last RSSI`, BLE status and a navigation hint. Before any match the MAC/RSSI show `--` and last-seen shows `never`. The MAC is the latest address actually matched by the IRK; it is not a prediction of the next address or a permanent hardware address.
 
 Serial phone status additionally reports **uptime at last detection**, **matching advertisement reports**, and **observed address changes**. The first address does not count as a change; a transition to any different matching address increments it, including a return to an earlier address. Repeat reports on the same address still increment the match count and refresh RSSI/time. These are reports delivered to the scanner callback, not an estimate of every packet sent by the phone. Counts reset on reboot and do not retain address history. Detection uptime uses the ESP32’s 64-bit monotonic timer, so it survives the normal 32-bit `millis()` rollover; it is not wall-clock time.
 

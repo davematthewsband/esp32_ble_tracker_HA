@@ -381,4 +381,16 @@ const char* status() {
     if (!connected) return "connecting";
     return server ? "HTTPS ready" : "HTTPS waiting";
 }
+
+ConnectionInfo connectionInfo() {
+    ConnectionInfo info;
+    info.enabled = enabled;
+    info.connected = connected;
+    info.httpsReady = connected && server;
+    if (connected) {
+        snprintf(info.ip, sizeof(info.ip), "%s", WiFi.localIP().toString().c_str());
+        info.rssi = WiFi.RSSI();
+    }
+    return info;
+}
 }  // namespace network_dashboard

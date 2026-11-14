@@ -6,6 +6,7 @@ Notable implemented changes are recorded here. Future work belongs in [the roadm
 
 ### Added
 
+- OLED startup title/initialization progress and debounced PRG-button cycling through Phone, Wi-Fi and System pages. Wi-Fi shows connection state, IP, RSSI and HTTPS readiness; System shows uptime/scans/memory. Startup does not wait for association, held presses do not repeat, and page changes do not write settings or expose passwords/IRKs.
 - Editable scanner/device names and manual room labels, persisted in NVS with the phone timeout. Added authenticated/CSRF-protected settings saves and versioned JSON download/import with strict bounds/schema validation; exports exclude credentials, keys and IRKs. Invalid imports retain active settings.
 
 - Station-only WPA2/WPA3 Wi-Fi and an authenticated HTTPS observation dashboard with separate Wi-Fi/BLE RSSI, strongest-first BLE observations, phone statistics and memory/scan health. Browser disconnects mark presence unconfirmed instead of retaining a live-present headline.

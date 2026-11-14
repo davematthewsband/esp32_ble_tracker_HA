@@ -8,6 +8,8 @@ Implemented: the user confirmed `wifi_lora_32_v3`; a PlatformIO/Arduino project 
 
 Acceptance: the project compiles for the selected board; after an agreed flash, the physical board shows the expected serial and OLED output. Record actual dependency versions and reproducible build/upload instructions.
 
+The OLED now has a timed startup title, initialization progress and Phone → Wi-Fi → System pages controlled by PRG. Host button tests cover bounce, holds, initial held state and rollover; physical startup/page navigation and network-state display acceptance remain pending.
+
 ## 2. Observe BLE advertisements
 
 Implemented in software: passive asynchronous five-second scans, a fixed 32-entry table, local name/address/type/RSSI diagnostics and OLED scan counters. The bundled Arduino BLE library is used without its internal accumulating results map. Local compilation passed on 14 November 2026. Real BLE reception and physical acceptance remain pending.
