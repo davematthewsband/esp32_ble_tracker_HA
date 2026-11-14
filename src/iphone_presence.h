@@ -11,6 +11,9 @@ bool decodeMacIrk(const char* base64, uint8_t key[16]);
 bool resolves(const uint8_t key[16], const uint8_t address[6],
               uint8_t addressType, EncryptBlock encrypt);
 bool selfTest(EncryptBlock encrypt);
+// NimBLE stores native addresses least-significant-byte first; Bluedroid uses
+// printed MAC order. The resolver always receives canonical printed order.
+void canonicalAddress(const uint8_t native[6], bool littleEndian, uint8_t output[6]);
 
 enum class State { Unknown, Present, NotSeenRecently };
 
@@ -35,6 +38,11 @@ public:
     bool seen() const { return seen_; }
     uint64_t ageMs() const { return ageMs_; }
     int rssi() const { return rssi_; }
+    uint32_t timeoutMs() const { return timeoutMs_; }
+    void setTimeoutMs(uint32_t timeoutMs) {
+        timeoutMs_ = timeoutMs;
+        if (seen_) expired_ = ageMs_ >= timeoutMs_;
+    }
 
 private:
     uint32_t timeoutMs_;

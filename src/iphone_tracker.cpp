@@ -81,6 +81,7 @@ void poll(bool scannerHealthy) {
 }
 
 const iphone_presence::Presence& presence() { return tracked; }
+void setTimeoutMs(uint32_t timeoutMs) { tracked.setTimeoutMs(timeoutMs); }
 const iphone_presence::MatchStats& stats() { return latestStats; }
 const char* status() {
     switch (tracked.state()) {

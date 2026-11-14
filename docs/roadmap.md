@@ -24,6 +24,11 @@ Acceptance: detection updates last-seen, brief gaps do not cause immediate absen
 
 ## 4. Send observations over MQTT
 
+Before MQTT, the agreed networking stages are:
+
+1. Implemented in software: station-only secure Wi-Fi, authenticated HTTPS observation dashboard, private local credentials/certificate, bounded strongest-first observations and separate Wi-Fi/BLE signal strengths. The dependency upgrade changes the BLE backend to native NimBLE GAP callbacks. Software checks are separate from physical coexistence and TLS acceptance; see [network dashboard](network-dashboard.md).
+2. Implemented in software: editable scanner/device names/manual rooms and phone timeout, persisted in NVS with validated versioned JSON import/export. Writes require authenticated HTTPS and a per-boot CSRF token. Exports exclude network/login passwords, TLS keys and IRKs. Full flash erase can remove NVS settings. Physical save/reboot/upload persistence and import acceptance remain pending.
+
 Introduce local Wi-Fi and broker configuration with placeholder examples. Publish only the selected device's presence and RSSI at a bounded rate. Plan reconnect backoff, broker availability and stale-state handling without blocking scans.
 
 Acceptance: the broker receives the documented payloads; Wi-Fi and MQTT recover after interruption; BLE reception continues during network activity on this board. Check memory use and avoid treating network loss as evidence that the tracked device left.

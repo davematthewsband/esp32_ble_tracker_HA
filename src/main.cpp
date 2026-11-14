@@ -3,6 +3,8 @@
 #include <Adafruit_SSD1306.h>
 #include "ble_scanner.h"
 #include "iphone_tracker.h"
+#include "network_dashboard.h"
+#include "settings_store.h"
 
 namespace {
 // Heltec's V3 OLED uses different I2C pins from the generic SDA/SCL.
@@ -46,6 +48,7 @@ void showStatus(uint32_t now) {
         Serial.print(" | latest matching MAC -- | matching reports 0 | observed address changes 0");
     }
     Serial.println();
+    Serial.printf("Network: %s\n", network_dashboard::status());
     if (!displayReady) {
         return;
     }
@@ -106,16 +109,21 @@ void setup() {
         display.setTextWrap(false);
     }
     iphone_tracker::begin();
+    settings_store::begin(iphone_tracker::presence().timeoutMs() / 1000);
+    iphone_tracker::setTimeoutMs(settings_store::phoneTimeoutMs());
     ble_scanner::begin();
     ble_scanner::poll();
     iphone_tracker::poll(ble_scanner::healthy());
+    network_dashboard::begin();
     showStatus(millis());
 }
 
 void loop() {
     ble_scanner::poll();
+    iphone_tracker::setTimeoutMs(settings_store::phoneTimeoutMs());
     const uint32_t now = millis();
     iphone_tracker::poll(ble_scanner::healthy());
+    network_dashboard::poll();
     // Unsigned subtraction keeps the interval correct across millis() rollover.
     if (static_cast<uint32_t>(now - lastUpdateMs) >= kUpdateMs) {
         lastUpdateMs = now;

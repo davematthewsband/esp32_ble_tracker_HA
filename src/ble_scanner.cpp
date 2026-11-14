@@ -4,27 +4,30 @@
 #include <Arduino.h>
 #include <BLEDevice.h>
 #include <BLEScan.h>
+#include <esp_timer.h>
 #include <atomic>
 #include <cstring>
+#if defined(CONFIG_NIMBLE_ENABLED)
+#include <host/ble_gap.h>
+#include <host/ble_hs.h>
+#include <host/ble_hs_adv.h>
+#endif
 
 namespace {
-constexpr size_t kCapacity = 32;
+constexpr size_t kCapacity = ble_scanner::kObservationCapacity;
 constexpr uint32_t kScanSeconds = 5;
-struct Observation {
-    char address[18];
-    uint8_t addressType;
-    int rssi;
-    char name[33];
-};
 
 // Only the BLE task writes during a scan. The loop reads after the completion
 // flag's release/acquire handoff; a new scan starts only after output finishes.
-Observation observations[kCapacity]{};
+ble_scanner::Observation observations[kCapacity]{};
+ble_scanner::Snapshot completedSnapshot;
 size_t used = 0;
 uint32_t overflowReports = 0;
 std::atomic<uint32_t> reportCount{0};
 std::atomic<bool> finished{false};
+#if defined(CONFIG_BLUEDROID_ENABLED)
 BLEScan* scanner = nullptr;
+#endif
 uint32_t scans = 0;
 uint8_t lastDevices = 0;
 size_t printIndex = 0;
@@ -35,50 +38,79 @@ bool stalled = false;
 uint32_t startedMs = 0;
 uint32_t retryMs = 0;
 
+void record(const uint8_t canonical[6], uint8_t type, int rssi,
+            const uint8_t* name, size_t nameLength) {
+    reportCount.fetch_add(1, std::memory_order_relaxed);
+    iphone_tracker::observe(canonical, type, rssi);
+    char address[18];
+    snprintf(address, sizeof(address), "%02x:%02x:%02x:%02x:%02x:%02x",
+             canonical[0], canonical[1], canonical[2], canonical[3], canonical[4], canonical[5]);
+    size_t index = 0;
+    for (; index < used; ++index) {
+        if (observations[index].addressType == type &&
+            std::strcmp(address, observations[index].address) == 0) break;
+    }
+    if (index == kCapacity) { ++overflowReports; return; }
+    auto& observation = observations[index];
+    if (index == used) {
+        ++used;
+        observation = {};
+        std::memcpy(observation.address, address, sizeof(address));
+        observation.addressType = type;
+    }
+    observation.rssi = rssi;
+    observation.lastSeenUptimeMs = static_cast<uint64_t>(esp_timer_get_time()) / 1000;
+    if (name && nameLength) {
+        const size_t length = nameLength < 32 ? nameLength : 32;
+        for (size_t i = 0; i < length; ++i) {
+            const auto c = name[i];
+            observation.name[i] = (c >= 32 && c <= 126 && c != '"') ? c : '?';
+        }
+        observation.name[length] = '\0';
+    }
+}
+
+#if defined(CONFIG_NIMBLE_ENABLED)
+// The bundled C++ NimBLE scanner retains an internal address map without a
+// public capacity setter in core 3.3.12. Use the bundled GAP API directly so
+// every advertisement reaches IRK matching without accumulating that map.
+int scanEvent(ble_gap_event* event, void*) {
+    if (event->type == BLE_GAP_EVENT_DISC) {
+        const auto& report = event->disc;
+        uint8_t canonical[6];
+        iphone_presence::canonicalAddress(report.addr.val, true, canonical);
+        ble_hs_adv_fields fields{};
+        const bool parsed = ble_hs_adv_parse_fields(&fields, report.data, report.length_data) == 0;
+        record(canonical, report.addr.type, report.rssi,
+               parsed ? fields.name : nullptr, parsed ? fields.name_len : 0);
+    } else if (event->type == BLE_GAP_EVENT_DISC_COMPLETE) {
+        finished.store(true, std::memory_order_release);
+    }
+    return 0;
+}
+
+bool startScan() {
+    uint8_t ownAddressType;
+    if (ble_hs_id_infer_auto(0, &ownAddressType) != 0) return false;
+    ble_gap_disc_params params{};
+    params.itvl = 160;  // 100 ms in 0.625-ms units.
+    params.window = 128; // 80 ms.
+    params.passive = 1;
+    params.filter_duplicates = 0;
+    return ble_gap_disc(ownAddressType, kScanSeconds * 1000, &params, scanEvent, nullptr) == 0;
+}
+#else
 class Callbacks : public BLEAdvertisedDeviceCallbacks {
     void onResult(BLEAdvertisedDevice device) override {
-        reportCount.fetch_add(1, std::memory_order_relaxed);
-        auto nativeAddress = device.getAddress();
-        iphone_tracker::observe(*nativeAddress.getNative(),
-                                static_cast<uint8_t>(device.getAddressType()),
-                                device.getRSSI());
-        const auto address = device.getAddress().toString();
-        const auto type = static_cast<uint8_t>(device.getAddressType());
-        size_t index = 0;
-        for (; index < used; ++index) {
-            if (observations[index].addressType == type &&
-                address == observations[index].address) {
-                break;
-            }
-        }
-        if (index == kCapacity) {
-            ++overflowReports;
-            return;
-        }
-        auto& observation = observations[index];
-        if (index == used) {
-            ++used;
-            observation = {};
-            memcpy(observation.address, address.c_str(), 17);
-            observation.addressType = type;
-        }
-        observation.rssi = device.getRSSI();
-        if (device.haveName()) {
-            const auto name = device.getName();
-            const size_t length = name.size() < 32 ? name.size() : 32;
-            for (size_t i = 0; i < length; ++i) {
-                const auto c = static_cast<unsigned char>(name[i]);
-                // Prevent advertised control characters from altering a terminal.
-                observation.name[i] = (c >= 32 && c <= 126 && c != '"') ? c : '?';
-            }
-            observation.name[length] = '\0';
-        }
+        auto address = device.getAddress();
+        const auto name = device.getName();
+        record(address.getNative(), static_cast<uint8_t>(device.getAddressType()), device.getRSSI(),
+               reinterpret_cast<const uint8_t*>(name.c_str()), name.length());
     }
 } callbacks;
-
-void complete(BLEScanResults) {
-    finished.store(true, std::memory_order_release);
-}
+void complete(BLEScanResults) { finished.store(true, std::memory_order_release); }
+bool startScan() { return scanner->start(kScanSeconds, complete, false); }
+#endif
 
 const char* addressTypeName(uint8_t type) {
     switch (type) {
@@ -94,13 +126,13 @@ const char* addressTypeName(uint8_t type) {
 namespace ble_scanner {
 void begin() {
     BLEDevice::init("");
+#if defined(CONFIG_BLUEDROID_ENABLED)
     scanner = BLEDevice::getScan();
-    // Receiving duplicates prevents this pinned library from accumulating an
-    // unbounded internal address map. We retain at most 32 entries ourselves.
     scanner->setAdvertisedDeviceCallbacks(&callbacks, true);
-    scanner->setActiveScan(false);  // Listen only; no scan requests or connections.
+    scanner->setActiveScan(false);
     scanner->setInterval(100);
     scanner->setWindow(80);
+#endif
     Serial.println("BLE passive scan: 5 s rounds, at most 32 address/type entries.");
 }
 
@@ -121,6 +153,11 @@ void poll() {
         printIndex = 0;
         ++scans;
         lastDevices = static_cast<uint8_t>(used);
+        completedSnapshot.count = used;
+        std::memcpy(completedSnapshot.entries, observations, used * sizeof(observations[0]));
+        completedSnapshot.completedUptimeMs = static_cast<uint64_t>(esp_timer_get_time()) / 1000;
+        completedSnapshot.reports = reportCount.load();
+        completedSnapshot.outsideCapacity = overflowReports;
         Serial.printf("Scan %lu: %lu reports, %u retained address/type entries, "
                       "%lu reports outside capacity\n",
                       static_cast<unsigned long>(scans),
@@ -147,7 +184,7 @@ void poll() {
     reportCount.store(0);
     finished.store(false);
     startedMs = now;
-    scanning = scanner->start(kScanSeconds, complete, false);
+    scanning = startScan();
     failed = !scanning;
     if (failed) {
         retryMs = now;
@@ -158,6 +195,7 @@ void poll() {
 uint32_t completedScans() { return scans; }
 uint32_t reports() { return reportCount.load(std::memory_order_relaxed); }
 uint8_t lastDeviceCount() { return lastDevices; }
+const Snapshot& snapshot() { return completedSnapshot; }
 bool healthy() { return !failed && !stalled; }
 const char* status() {
     if (stalled) return "stalled";

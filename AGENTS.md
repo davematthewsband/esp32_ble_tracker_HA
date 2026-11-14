@@ -27,6 +27,8 @@
 - Treat RSSI as signal strength, not a reliable distance measurement. A missed advertisement does not immediately establish absence.
 - Use current official hardware, library and Home Assistant documentation. Verify board pins, display power/reset behavior and dependency compatibility before implementation.
 - Keep scan callbacks short and memory use bounded. Validate Wi-Fi/BLE coexistence on the actual board when that stage is reached.
+- The dashboard is HTTPS-only. Observation endpoints are read-only; settings writes require authentication, a per-boot CSRF token and full schema/size validation before NVS replacement. Keep every data/asset/settings endpoint authenticated; never add plaintext HTTP or an open configuration hotspot as a fallback. Wi-Fi/login configuration and TLS keys live in ignored `include/config.local.*` and `.local-network/`. Preserve user edits to those files and never print their contents.
+- The pinned Arduino 3.3.12 uses NimBLE. Convert its native little-endian addresses before IRK resolution and use GAP callbacks directly to avoid the bundled C++ scanner's uncapped result map. Publish completed snapshots from the main loop; HTTPS handlers must not read live BLE/phone state.
 
 ## Changelog and validation
 

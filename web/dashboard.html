@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>BLE tracker</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <main>
+    <header><div><p class="eyebrow">HELTEC V3 · LOCAL OBSERVATIONS</p><h1 id="scanner-name">BLE tracker</h1></div><span class="badge">Local dashboard</span></header>
+    <p class="hint" id="scanner-room"></p>
+    <p id="connection" role="status" aria-live="polite">Connecting securely to the scanner…</p>
+    <section class="cards" aria-label="Connection overview">
+      <article><h2>Scanner Wi-Fi</h2><p class="metric" id="wifi-rssi">—</p><p id="wifi-detail">Waiting for network status</p><p class="hint">ESP32 → access point</p></article>
+      <article><h2>iPhone</h2><p class="metric" id="phone-status">Unknown</p><p id="phone-detail">No observation yet</p><p class="hint">A recent IRK match, not a location fix</p></article>
+      <article><h2>BLE scanner</h2><p class="metric" id="scan-status">—</p><p id="scan-detail">Waiting for a completed scan</p><p class="hint">Five-second passive scan rounds</p></article>
+    </section>
+    <section class="panel" aria-labelledby="phone-heading">
+      <div class="section-heading"><h2 id="phone-heading">Phone observations</h2><button id="label-phone" type="button">Name this phone</button></div>
+      <dl class="stats">
+        <div><dt>Latest matching MAC · rotating</dt><dd id="phone-mac">—</dd></div>
+        <div><dt>Last matching RSSI</dt><dd id="phone-rssi">—</dd></div>
+        <div><dt>Last seen</dt><dd id="phone-seen">Never</dd></div>
+        <div><dt>Detection uptime</dt><dd id="phone-uptime">—</dd></div>
+        <div><dt>Matching reports</dt><dd id="phone-matches">0</dd></div>
+        <div><dt>Observed MAC changes</dt><dd id="phone-changes">0</dd></div>
+      </dl>
+    </section>
+    <section class="panel" aria-labelledby="devices-heading">
+      <div class="section-heading"><h2 id="devices-heading">Nearby Bluetooth observations</h2><label>Sort <select id="sort"><option value="strongest">Strongest signal first</option><option value="recent">Most recently seen</option><option value="name">Advertised name</option></select></label></div>
+      <p class="hint" id="scan-age">Waiting for a scan…</p>
+      <p class="notice">The first 32 address/type pairs retained in the latest completed round. Signal strength varies; the strongest row is not necessarily the closest device. Names and addresses may change.</p>
+      <div class="table-wrap"><table><thead><tr><th scope="col">Name / manual room</th><th scope="col">Address</th><th scope="col">Address type</th><th scope="col">Last RSSI</th><th scope="col">Last seen</th><th scope="col">Label</th></tr></thead><tbody id="devices"></tbody></table></div>
+      <p id="empty">No completed scan yet.</p>
+    </section>
+    <section class="panel" aria-labelledby="settings-heading">
+      <h2 id="settings-heading">Scanner settings</h2>
+      <p class="notice">Rooms are manual labels, not positions inferred from Bluetooth signal. Settings are saved on this ESP32 and normally survive firmware uploads.</p>
+      <form id="scanner-form" class="form-grid">
+        <label>Scanner name<input id="setting-name" maxlength="32" required></label>
+        <label>Scanner room<input id="setting-room" maxlength="32"></label>
+        <label>Phone timeout · seconds<input id="setting-timeout" type="number" min="5" max="3600" required></label>
+        <button type="submit">Save scanner settings</button>
+      </form>
+      <h3>Device label</h3>
+      <form id="label-form" class="form-grid">
+        <label>Selected identity<input id="label-identity" readonly required placeholder="Choose a device above"></label>
+        <label>Display name<input id="label-name" maxlength="32" required></label>
+        <label>Manual room<input id="label-room" maxlength="32"></label>
+        <div><button type="submit">Save label</button> <button id="remove-label" type="button">Remove label</button></div>
+      </form>
+      <p class="hint">The iPhone label follows its IRK. Ordinary address labels may stop matching when an address rotates. Names and room labels allow up to 32 UTF-8 bytes, with at most 16 saved devices.</p>
+      <ul id="saved-labels" aria-label="Saved device labels"></ul>
+      <h3>Configuration backup</h3>
+      <div class="backup"><button id="download-settings" type="button">Download settings JSON</button><label>Import settings JSON<input id="import-settings" type="file" accept="application/json,.json"></label></div>
+      <p class="hint">Import replaces scanner settings and saved labels after validation. Backups exclude Wi-Fi/login credentials, certificates and IRKs. Keep backups private: device labels and addresses can identify your equipment.</p>
+      <p id="settings-message" role="status" aria-live="polite">Loading saved settings…</p>
+    </section>
+    <footer><p id="system">Waiting for scanner health…</p><p>All observations stay on this device and your local network. An ordinary firmware upload preserves saved settings; a full flash erase does not.</p></footer>
+  </main>
+</body>
+</html>

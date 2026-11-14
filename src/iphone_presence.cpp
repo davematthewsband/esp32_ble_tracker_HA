@@ -40,7 +40,7 @@ bool decodeMacIrk(const char* base64, uint8_t key[16]) {
 
 bool resolves(const uint8_t key[16], const uint8_t address[6],
               uint8_t addressType, EncryptBlock encrypt) {
-    // Native Bluedroid bytes are in printed MAC order. Only unresolved random
+    // Input bytes are in printed MAC order. Only unresolved random
     // addresses (type 1) with prand's high bits 01 can be RPAs.
     if (addressType != 1 || (address[0] & 0xC0) != 0x40) return false;
     const uint32_t random = ((address[0] & 0x3F) << 16) |
@@ -59,6 +59,12 @@ bool selfTest(EncryptBlock encrypt) {
                              0x34,0x10,0x10,0xa6,0x0a,0x39,0x7d,0x9b};
     const uint8_t address[6] = {0x70,0x81,0x94,0x0d,0xfb,0xaa};
     return resolves(key, address, 1, encrypt);
+}
+
+void canonicalAddress(const uint8_t native[6], bool littleEndian, uint8_t output[6]) {
+    uint8_t copy[6];
+    for (unsigned i = 0; i < 6; ++i) copy[i] = native[littleEndian ? 5 - i : i];
+    std::memcpy(output, copy, sizeof(copy));
 }
 
 void MatchStats::observe(const uint8_t matchedAddress[6], int matchedRssi,

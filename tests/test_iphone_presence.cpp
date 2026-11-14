@@ -26,6 +26,13 @@ int main() {
     assert(selfTest(encrypt));
     assert(!selfTest(failingEncrypt));
     assert(resolves(key, address, 1, encrypt));
+    const uint8_t nimbleAddress[6] = {0xaa,0xfb,0x0d,0x94,0x81,0x70};
+    uint8_t canonical[6];
+    canonicalAddress(nimbleAddress, true, canonical);
+    assert(std::memcmp(canonical, address, 6) == 0);
+    assert(resolves(key, canonical, 1, encrypt));
+    canonicalAddress(address, false, canonical);
+    assert(std::memcmp(canonical, address, 6) == 0);
     uint8_t wrongKey[16]{};
     assert(!resolves(wrongKey, address, 1, encrypt));
     uint8_t reversedKey[16];
@@ -96,6 +103,10 @@ int main() {
     atBoot.tick(101, false);
     assert(atBoot.state() == State::Unknown);
     atBoot.tick(102, true);
+    assert(atBoot.state() == State::Present && atBoot.ageMs() == 3);
+    atBoot.setTimeoutMs(2);
+    assert(atBoot.state() == State::NotSeenRecently);
+    atBoot.setTimeoutMs(100);
     assert(atBoot.state() == State::Present && atBoot.ageMs() == 3);
     MatchStats stats;
     assert(stats.matches == 0 && stats.addressChanges == 0);

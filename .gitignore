@@ -13,6 +13,7 @@ secrets.yaml
 config.local.*
 include/secrets.h
 include/config.local.h
+.local-network/
 
 # Local diagnostics and observations
 captures/
@@ -25,3 +26,5 @@ logs/
 .DS_Store
 *.swp
 *~
+__pycache__/
+*.py[cod]

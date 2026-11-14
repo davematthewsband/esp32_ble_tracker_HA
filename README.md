@@ -6,9 +6,9 @@ Existing projects are useful references, but the aim here is to understand and i
 
 ## Current status
 
-The firmware implements passive BLE scanning, local serial diagnostics and an OLED scan status screen refreshed once per second. Local IRK-based iPhone presence is implemented; Wi-Fi and MQTT are future stages. The user reported that the preceding serial/OLED firmware worked after flashing; BLE reception and IRK matching have not yet been hardware-verified.
+The firmware implements passive BLE scanning, local serial diagnostics and an OLED scan status screen refreshed once per second. Local IRK-based iPhone presence and an authenticated HTTPS dashboard, saved labels/manual rooms and configuration backup/import are implemented in software. MQTT is a future stage. The user reported that the preceding serial/OLED firmware worked after flashing; Earlier live serial inspection showed fresh IRK matches; the upgraded BLE backend and Wi-Fi/HTTPS stage still need physical verification.
 
-The serial/OLED baseline compiled locally on 14 November 2026 using PlatformIO Core 6.2.0 and the pinned dependencies below. The IRK-tracking stage also compiled successfully on that date: build-reported static RAM is 46,536 bytes (14.2%), and application flash is 912,833 bytes (27.3% of the application partition). These figures do not measure runtime heap, radio reception or runtime stability.
+The serial/OLED baseline compiled locally on 14 November 2026 using PlatformIO Core 6.2.0 and the pinned dependencies below. The earlier IRK stage compiled on that date. The new network stage is compiled separately with private local configuration and with an enabled-network fixture. Static build usage does not measure TLS handshake heap or prove radio reception/runtime stability.
 
 ## Hardware
 
@@ -26,7 +26,7 @@ Use PlatformIO Core (`pio`) or the PlatformIO VS Code extension. On this Mac the
 pio run -e heltec_v3
 ```
 
-The project pins Espressif32 platform **6.3.2** (the locally installed baseline, Arduino core 2.0.9), Adafruit SSD1306 **2.5.17**, Adafruit GFX **1.13.0** and Adafruit BusIO **1.17.4**. This platform is deliberately an older baseline, not a claim to use the latest release. The first build may need internet access to download dependencies.
+The project pins Espressif32 platform **8.0.0** (Arduino core 3.3.12 / ESP-IDF 5.5.5), Adafruit SSD1306 **2.5.17**, Adafruit GFX **1.13.0** and Adafruit BusIO **1.17.4**. The network stage upgrades the earlier Arduino 2.0.9 baseline; BLE backend and network hardware verification must be repeated. The first build may need internet access to download dependencies.
 
 For an isolated PlatformIO tool cache inside this ignored project directory, prefix commands with `PLATFORMIO_CORE_DIR="$PWD/.pio-core"`.
 
@@ -48,10 +48,10 @@ The OLED uses I2C SDA **17**, SCL **18**, reset **21**, address **0x3C**, and ac
 
 ## BLE scanning experiment
 
-The scanner uses the BLE library bundled with the pinned Arduino core; no additional BLE dependency is needed. See [Espressif’s scanner implementation for core 2.0.9](https://github.com/espressif/arduino-esp32/blob/2.0.9/libraries/BLE/src/BLEScan.cpp).
+The scanner uses the BLE library bundled with the pinned Arduino core; no additional BLE dependency is needed. See [Espressif’s BLE implementation for core 3.3.12](https://github.com/espressif/arduino-esp32/blob/3.3.12/libraries/BLE/src/BLEScan.cpp).
 
 - Passive five-second rounds listen for legacy BLE advertisements without sending scan requests or making connections. Scan interval is 100 ms; listening window is 80 ms.
-- The callback counts reports and retains at most **32 address/type pairs per round**. Repeat reports update RSSI and any advertised name. A fixed table is reused each round; the library’s duplicate-report mode avoids its internal growing result map.
+- The callback counts reports and retains at most **32 address/type pairs per round**. Repeat reports update RSSI and any advertised name. A fixed table is reused each round; native NimBLE GAP callbacks avoid the C++ wrapper’s internal growing result map. Native address byte order is converted before IRK matching.
 - Completion hands the table back to the main loop, which prints one entry per loop iteration before starting the next round. The OLED continues updating while scans run. There is a short listening gap while the previous round is printed.
 - Serial entries show address, address type, most recently observed RSSI in dBm and any name observed during that round. Names are limited to 32 bytes and non-ASCII/control characters are replaced with `?`. Raw manufacturer/service payloads are not logged.
 - `Reports` counts received callback reports in the current or just-completed round, including repeats. The serial summary’s retained address/type count is capped at 32; neither is a count of people or stable physical devices. Reports from addresses outside a full table are counted separately in serial output.
@@ -83,7 +83,7 @@ Serial phone status additionally reports **uptime at last detection**, **matchin
 
 The latest matching MAC, last-seen age and **last matching** RSSI remain historical values after a timeout or scanner failure. A fresh match resets the age. Scanner recovery does not refresh an old match. The age uses accumulated 64-bit elapsed time; normal `millis()` rollover does not make an expired phone present again. State is not persisted over reset: startup returns to unknown until a match arrives.
 
-This recognizes suitable advertisements when received; it cannot prove that Bluetooth is off, that the phone has left, or which room it occupies. iOS may stop advertising or use addresses that cannot be resolved by this key. The hash is only 24 bits, so a match is not cryptographic authentication or an absolute identity guarantee. Address-rotation timing is not used in the logic. No pairing, connection, Wi-Fi or MQTT is introduced.
+This recognizes suitable advertisements when received; it cannot prove that Bluetooth is off, that the phone has left, or which room it occupies. iOS may stop advertising or use addresses that cannot be resolved by this key. The hash is only 24 bits, so a match is not cryptographic authentication or an absolute identity guarantee. Address-rotation timing is not used in the logic. No pairing or active GATT connection is introduced. Wi-Fi serves the observation dashboard and protected settings editor below; MQTT remains unimplemented.
 
 The IRK is never printed. It is compiled into the firmware, so treat `.pio/` binaries and the local config as private; ignore rules are not firmware encryption. Generic scan diagnostics still print nearby addresses/names as before.
 
@@ -99,6 +99,14 @@ PLATFORMIO_CORE_DIR="$PWD/.pio-core" /Users/finnmainstone/.platformio/penv/bin/p
 The macOS tests use Apple’s CommonCrypto AES backend with the same pure resolver and timing code. They cover the published vector, macOS key byte order, invalid configuration, wrong keys/hashes/address types, exact timeout boundaries, scanner failure/recovery, timer rollover, match counts, address transitions, coherent snapshots and 64-bit detection uptime, with address/undefined-behavior sanitizers. The firmware backend is compiled here; its startup self-test executes on the ESP32 after upload. Passing host tests does not validate the supplied key against this iPhone.
 
 After the user uploads: check serial startup for `iPhone tracker configured`, keep the phone nearby with Bluetooth enabled, and look for `present`, a recent last-seen age and RSSI. If it stays unknown, check advertising/phone state and key provenance before changing the resolver. Then take the phone out of range or turn Bluetooth off in iOS Settings, wait at least 120 seconds after the last match and check `not seen`. Return it and confirm a new match restores `present`. Confirm the latest matching MAC and RSSI appear on both OLED and serial, repeated matches increase the serial counter, and last-detection uptime agrees with last-seen age. Observe across actual address rotation to establish that recognition survives it and that the transition counter increases. When observations stop, confirm that the MAC and last RSSI remain historical values while last-seen age increases. Keep diagnostic captures local. These hardware checks remain pending.
+
+## Wi-Fi, local dashboard and saved settings
+
+The networking stage serves observations over authenticated HTTPS and provides explicit protected settings saves. It shows Wi-Fi RSSI separately from BLE RSSI, a strongest-first observation list, phone statistics and scanner/memory health. It uses private credentials and a unique local certificate; there is no open setup hotspot or HTTP fallback.
+
+See [network setup, certificate trust and validation](docs/network-dashboard.md). The private SSID is configured locally; fill the Wi-Fi password and keep the dashboard password at least 24 characters in ignored `include/config.local.network.h`. Rebuild/upload after editing. Networking stays disabled if settings are incomplete or invalid.
+
+Name observed devices, assign manual room labels, edit the scanner name/room and phone timeout, and download/import a versioned settings JSON file. These settings are saved in ESP32 NVS and normally survive firmware uploads. Full erase can remove them. Exports exclude credentials, TLS material and IRKs; one scanner cannot infer the correct room from RSSI alone.
 
 ## Intended approach
 
@@ -118,7 +126,7 @@ Selected BLE advertiser → Heltec scanner → Wi-Fi → MQTT broker → Home As
                          Serial / OLED
 ```
 
-An MQTT broker and Home Assistant's MQTT integration will be needed for the network stage. Their setup is not implemented here yet. See [Home Assistant MQTT](https://www.home-assistant.io/integrations/mqtt/) and [MQTT device tracking](https://www.home-assistant.io/integrations/device_tracker.mqtt/).
+An MQTT broker and Home Assistant's MQTT integration will be needed for the later MQTT stage. Their setup is not implemented here yet. See [Home Assistant MQTT](https://www.home-assistant.io/integrations/mqtt/) and [MQTT device tracking](https://www.home-assistant.io/integrations/device_tracker.mqtt/).
 
 ## What “tracking” means initially
 
@@ -134,6 +142,7 @@ Credentials, real tracked-device identifiers and raw scan captures belong in loc
 
 - [Working agreement](AGENTS.md): discuss changes before implementation and validate each agreed stage.
 - [Learning roadmap](docs/roadmap.md): proposed experiments and their acceptance checks.
+- [Network dashboard](docs/network-dashboard.md): private setup, certificate trust, security boundaries and hardware checks.
 - [Project learnings](docs/learnings.md): practical observations and troubleshooting notes.
 - [Changelog](CHANGELOG.md): completed notable changes.
 
