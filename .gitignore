@@ -1,0 +1,26 @@
+# PlatformIO and generated build output
+.pio/
+build/
+
+# Local credentials and device-specific configuration
+.env
+.env.*
+!.env.example
+secrets.h
+secrets.json
+secrets.yaml
+config.local.*
+include/secrets.h
+include/config.local.h
+
+# Local diagnostics and observations
+captures/
+logs/
+*.log
+
+# Editor and OS state
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*~
